@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const Groq = require('groq-sdk');
-const puppeteer = require('puppeteer');
+const puppeteerCore = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const { marked } = require('marked');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
@@ -260,9 +261,11 @@ ${proposalHtml}
 
 </body></html>`;
 
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    const browser = await puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
