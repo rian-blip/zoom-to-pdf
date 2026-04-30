@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>議事録・提案書 自動生成</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #111;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 36px;
+    }
+    .drop-zone {
+      border: 2px dashed #ddd;
+      border-radius: 12px;
+      padding: 48px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #333;
+      background: #f0f0f0;
+    }
+    .drop-icon { font-size: 40px; margin-bottom: 12px; }
+    .drop-text { font-size: 15px; color: #444; margin-bottom: 6px; }
+    .drop-sub { font-size: 12px; color: #aaa; }
+    #file-input { display: none; }
+    .file-name {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #555;
+      background: #f0f0f0;
+      padding: 8px 14px;
+      border-radius: 8px;
+      display: none;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      margin-top: 24px;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #333; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .progress {
+      display: none;
+      margin-top: 28px;
+    }
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+      color: #999;
+    }
+    .progress-step.done { color: #222; }
+    .progress-step.active { color: #111; font-weight: bold; }
+    .step-icon { width: 20px; text-align: center; }
+    .result {
+      display: none;
+      margin-top: 28px;
+      text-align: center;
+    }
+    .download-btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #111;
+      color: #fff;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .result-msg { font-size: 15px; color: #333; margin-bottom: 8px; }
+    .error-msg {
+      display: none;
+      margin-top: 20px;
+      padding: 14px;
+      background: #fff0f0;
+      border-radius: 8px;
+      color: #c00;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎙️ 議事録・提案書 自動生成</h1>
+    <p class="subtitle">動画・音声ファイルをアップロードするだけで、議事録と提案書のPDFを自動で作成します。</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">📁</div>
+      <div class="drop-text">ここにファイルをドラッグ＆ドロップ</div>
+      <div class="drop-sub">または クリックして選択（mp4・mov・m4a・mp3）</div>
+      <input type="file" id="file-input" accept=".mp4,.mov,.m4a,.mp3">
+    </div>
+    <div class="file-name" id="file-name"></div>
+
+    <button class="btn" id="upload-btn" disabled>PDFを生成する</button>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="progress" id="progress">
+      <div class="progress-step" id="step1"><span class="step-icon">⏳</span> 音声を取り出しています...</div>
+      <div class="progress-step" id="step2"><span class="step-icon">⏳</span> 文字起こし中...</div>
+      <div class="progress-step" id="step3"><span class="step-icon">⏳</span> 議事録を作成中...</div>
+      <div class="progress-step" id="step4"><span class="step-icon">⏳</span> 提案書を作成中...</div>
+      <div class="progress-step" id="step5"><span class="step-icon">⏳</span> PDFを生成中...</div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-msg">✅ 完成しました！</div>
+      <a class="download-btn" id="download-link" href="#" download>📄 PDFをダウンロード</a>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileNameEl = document.getElementById('file-name');
+    const uploadBtn = document.getElementById('upload-btn');
+    const progressEl = document.getElementById('progress');
+    const resultEl = document.getElementById('result');
+    const errorEl = document.getElementById('error-msg');
+    let selectedFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    function setFile(file) {
+      selectedFile = file;
+      fileNameEl.textContent = '📎 ' + file.name;
+      fileNameEl.style.display = 'block';
+      uploadBtn.disabled = false;
+    }
+
+    function setStep(stepId, status) {
+      const el = document.getElementById(stepId);
+      el.className = 'progress-step ' + status;
+      el.querySelector('.step-icon').textContent = status === 'done' ? '✅' : status === 'active' ? '🔄' : '⏳';
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      uploadBtn.disabled = true;
+      errorEl.style.display = 'none';
+      resultEl.style.display = 'none';
+      progressEl.style.display = 'block';
+      ['step1','step2','step3','step4','step5'].forEach(s => setStep(s, 'waiting'));
+      setStep('step1', 'active');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+
+        ['step1','step2','step3','step4','step5'].forEach(s => setStep(s, 'done'));
+        document.getElementById('download-link').href = data.pdfUrl;
+        resultEl.style.display = 'block';
+      } catch (err) {
+        errorEl.textContent = '❌ ' + err.message;
+        errorEl.style.display = 'block';
+        uploadBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
