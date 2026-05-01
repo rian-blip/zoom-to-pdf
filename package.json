@@ -1,8 +1,8 @@
 {
-  "name": "zoom-to-pdf",
+  "name": "zoom-minutes",
   "version": "1.0.0",
-  "description": "Zoom録音から議事録・提案書PDFを自動生成",
-  "main": "index.js",
+  "description": "Zoom録音から議事録・提案書Wordを自動生成",
+  "main": "web/server.js",
   "scripts": {
     "start": "node web/server.js"
   },
@@ -10,15 +10,10 @@
     "node": "20.x"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.30.0",
-    "@sparticuz/chromium": "^148.0.0",
     "docx": "^9.6.1",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "groq-sdk": "^0.7.0",
-    "marked": "^12.0.0",
-    "multer": "^2.1.1",
-    "puppeteer": "^22.0.0",
-    "puppeteer-core": "^24.42.0"
+    "multer": "^2.1.1"
   }
 }
