@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
     "@sparticuz/chromium": "^148.0.0",
+    "docx": "^9.6.1",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "groq-sdk": "^0.7.0",

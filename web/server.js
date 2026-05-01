@@ -4,9 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const Groq = require('groq-sdk');
-const puppeteerCore = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
-const { marked } = require('marked');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = require('docx');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
@@ -261,18 +259,38 @@ ${proposalHtml}
 
 </body></html>`;
 
-    const browser = await puppeteerCore.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+    // Word文書を生成
+    const makeParas = (text) => text.split('\n').filter(l => l.trim()).map(line => {
+      const clean = line.replace(/^#{1,3}\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1').trim();
+      const isHeading = /^#{1,3}\s/.test(line);
+      return new Paragraph({
+        text: clean,
+        heading: isHeading ? HeadingLevel.HEADING_2 : undefined,
+        spacing: { after: 120 },
+        style: isHeading ? undefined : 'Normal',
+      });
     });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.pdf({ path: pdfPath, format: 'A4', margin: { top: '15mm', bottom: '15mm', left: '15mm', right: '15mm' }, printBackground: true });
-    await browser.close();
 
-    res.json({ pdfUrl: `/output/${pdfName}` });
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({ text: '議事録・提案書', heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+          new Paragraph({ text: `作成日：${today}`, alignment: AlignmentType.CENTER, spacing: { after: 600 } }),
+          new Paragraph({ text: '議事録', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '333333' } } }),
+          ...makeParas(minutes),
+          new Paragraph({ text: '', pageBreakBefore: true }),
+          new Paragraph({ text: '提案書', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '333333' } } }),
+          ...makeParas(proposal),
+        ]
+      }]
+    });
+
+    const wordName = pdfName.replace('.pdf', '.docx');
+    const wordPath = path.join(OUTPUT_DIR, wordName);
+    const buffer = await Packer.toBuffer(doc);
+    fs.writeFileSync(wordPath, buffer);
+
+    res.json({ pdfUrl: `/output/${wordName}` });
 
   } catch (err) {
     console.error(err);
